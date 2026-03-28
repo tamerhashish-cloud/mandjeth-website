@@ -1,5 +1,6 @@
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import ContactModal from '@/components/ContactModal'
 import Image from 'next/image'
 
 export default function Home() {
@@ -172,12 +173,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-[#102B46] mb-4">Let’s discuss your challenge</h2>
           <p className="text-[#5E6B78]/88 mb-8">Connect to define a structured roadmap for your maritime fuel and compliance needs.</p>
-          <a
-            href="#contact"
-            className="inline-flex items-center justify-center rounded border border-[#102B46] bg-[#102B46] px-8 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#102B46]/90"
-          >
-            Book a call
-          </a>
+          <ContactModal />
         </div>
       </section>
 
