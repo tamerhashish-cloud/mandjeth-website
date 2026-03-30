@@ -1,91 +1,67 @@
 'use client'
 
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
-type InquiryType = 'FuelEU / EU ETS Readiness' | 'Alternative Fuel Sourcing' | 'Decision Support' | 'Partnership' | 'Other'
-
-type FormState = {
-  name: string
-  email: string
-  company: string
-  inquiryType: InquiryType
-  message: string
-  website: string
+interface ContactModalProps {
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-const initialFormState: FormState = {
-  name: '',
-  email: '',
-  company: '',
-  inquiryType: 'FuelEU / EU ETS Readiness',
-  message: '',
-  website: '',
-}
+export default function ContactModal({ isOpen = false, onClose }: ContactModalProps) {
+  const [formState, setFormState] = useState({
+    name: '',
+    email: '',
+    company: '',
+    inquiryType: 'General Inquiry',
+    message: '',
+    website: '',
+  })
 
-export default function ContactModal() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [formData, setFormData] = useState<FormState>(initialFormState)
-  const openButtonRef = useRef<HTMLButtonElement>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [showModal, setShowModal] = useState(isOpen)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    const triggerElement = openButtonRef.current
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    document.body.style.overflow = 'hidden'
-    closeButtonRef.current?.focus()
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = ''
-      triggerElement?.focus()
-    }
+    setShowModal(isOpen)
   }, [isOpen])
 
-  const openModal = () => {
-    setError('')
-    setSuccess('')
-    setIsOpen(true)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormState((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
   }
 
-  const closeModal = () => {
-    setIsOpen(false)
-  }
+  const validateForm = (): boolean => {
+    const { name, email, company, message } = formState
 
-  const updateField = (field: keyof FormState, value: string) => {
-    setFormData((previous) => ({ ...previous, [field]: value }))
-  }
-
-  const submitForm = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-
-    if (!formData.name.trim() || !formData.email.trim() || !formData.company.trim() || !formData.message.trim()) {
-      setError('Please complete name, email, company, and message before submitting.')
-      return
+    if (!name.trim() || !email.trim() || !company.trim() || !message.trim()) {
+      setErrorMessage('Name, email, company, and message are required.')
+      return false
     }
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailPattern.test(formData.email)) {
-      setError('Please enter a valid email address.')
+    if (!emailPattern.test(email)) {
+      setErrorMessage('Please provide a valid email address.')
+      return false
+    }
+
+    return true
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setSuccessMessage('')
+    setErrorMessage('')
+
+    if (!validateForm()) {
       return
     }
 
-    setIsSubmitting(true)
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/contact', {
@@ -93,174 +69,195 @@ export default function ContactModal() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formState),
       })
 
-      const payload = (await response.json()) as { message?: string }
+      const data = await response.json()
 
       if (!response.ok) {
-        setError(payload.message ?? 'Your request could not be submitted. Please try again.')
+        setErrorMessage(data.message || 'An error occurred. Please try again.')
+        setIsLoading(false)
         return
       }
 
-      setSuccess('Thanks. Your inquiry has been received and we will contact you shortly.')
-      setFormData(initialFormState)
-    } catch {
-      setError('A network error occurred while sending your inquiry. Please try again.')
+      setSuccessMessage(data.message)
+      setFormState({
+        name: '',
+        email: '',
+        company: '',
+        inquiryType: 'General Inquiry',
+        message: '',
+        website: '',
+      })
+
+      setTimeout(() => {
+        setShowModal(false)
+        onClose?.()
+        setSuccessMessage('')
+      }, 2000)
+    } catch (error) {
+      setErrorMessage('Failed to send inquiry. Please try again.')
+      console.error('Form submission error:', error)
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
+  const handleClose = () => {
+    setShowModal(false)
+    setErrorMessage('')
+    setSuccessMessage('')
+    onClose?.()
+  }
+
+  const handleEscapeKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      handleClose()
+    }
+  }
+
+  if (!showModal) {
+    return null
+  }
+
   return (
-    <>
-      <button
-        ref={openButtonRef}
-        type="button"
-        onClick={openModal}
-        className="inline-flex items-center justify-center rounded border border-[#102B46] bg-[#102B46] px-8 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#102B46]/90"
-      >
-        Book a call
-      </button>
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-[#102B46]/55 p-4"
-          onClick={closeModal}
-          role="presentation"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      onKeyDown={handleEscapeKey}
+    >
+      <div className="relative w-full max-w-md bg-white rounded-lg shadow-lg p-8">
+        <button
+          ref={closeButtonRef}
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl w-8 h-8 flex items-center justify-center"
+          aria-label="Close modal"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="contact-modal-title"
-            className="w-full max-w-2xl rounded-xl border border-[#E8EAEF] bg-white p-6 md:p-8 shadow-[0_20px_48px_rgba(16,43,70,0.25)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h3 id="contact-modal-title" className="text-2xl font-bold text-[#102B46]">
-                  Share your business inquiry
-                </h3>
-                <p className="mt-2 text-sm text-[#5E6B78]">
-                  Tell us about your challenge and we will respond with next steps.
-                </p>
-              </div>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={closeModal}
-                className="rounded border border-[#102B46]/25 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#102B46] transition-colors hover:bg-[#102B46]/5"
-                aria-label="Close contact form"
-              >
-                Close
-              </button>
-            </div>
+          ✕
+        </button>
 
-            <form className="space-y-4" onSubmit={submitForm} noValidate>
-              <input
-                type="text"
-                name="website"
-                autoComplete="off"
-                tabIndex={-1}
-                className="hidden"
-                value={formData.website}
-                onChange={(event) => updateField('website', event.target.value)}
-              />
+        <h2 id="modal-title" className="text-2xl font-bold mb-6 text-gray-900">
+          Get in Touch
+        </h2>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[#102B46]">Name *</span>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    value={formData.name}
-                    onChange={(event) => updateField('name', event.target.value)}
-                    className="w-full rounded border border-[#D6D9DC] px-3 py-2.5 text-sm text-[#102B46] outline-none transition focus:border-[#102B46] focus:ring-2 focus:ring-[#102B46]/15"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[#102B46]">Email *</span>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={(event) => updateField('email', event.target.value)}
-                    className="w-full rounded border border-[#D6D9DC] px-3 py-2.5 text-sm text-[#102B46] outline-none transition focus:border-[#102B46] focus:ring-2 focus:ring-[#102B46]/15"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[#102B46]">Company *</span>
-                  <input
-                    type="text"
-                    name="company"
-                    required
-                    value={formData.company}
-                    onChange={(event) => updateField('company', event.target.value)}
-                    className="w-full rounded border border-[#D6D9DC] px-3 py-2.5 text-sm text-[#102B46] outline-none transition focus:border-[#102B46] focus:ring-2 focus:ring-[#102B46]/15"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[#102B46]">Interest type</span>
-                  <select
-                    name="inquiryType"
-                    value={formData.inquiryType}
-                    onChange={(event) => updateField('inquiryType', event.target.value)}
-                    className="w-full rounded border border-[#D6D9DC] bg-white px-3 py-2.5 text-sm text-[#102B46] outline-none transition focus:border-[#102B46] focus:ring-2 focus:ring-[#102B46]/15"
-                  >
-                    <option>FuelEU / EU ETS Readiness</option>
-                    <option>Alternative Fuel Sourcing</option>
-                    <option>Decision Support</option>
-                    <option>Partnership</option>
-                    <option>Other</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[#102B46]">Message *</span>
-                <textarea
-                  name="message"
-                  required
-                  rows={5}
-                  value={formData.message}
-                  onChange={(event) => updateField('message', event.target.value)}
-                  className="w-full rounded border border-[#D6D9DC] px-3 py-2.5 text-sm text-[#102B46] outline-none transition focus:border-[#102B46] focus:ring-2 focus:ring-[#102B46]/15"
-                  placeholder="Share your goals, timeline, or compliance challenge."
-                />
-              </label>
-
-              {error && (
-                <p className="rounded border border-[#9F1D1D]/25 bg-[#FDF0F0] px-3 py-2 text-sm text-[#9F1D1D]" role="alert">
-                  {error}
-                </p>
-              )}
-
-              {success && (
-                <p className="rounded border border-[#1A6B3F]/25 bg-[#ECF8F1] px-3 py-2 text-sm text-[#1A6B3F]" role="status">
-                  {success}
-                </p>
-              )}
-
-              <div className="pt-1">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex items-center justify-center rounded border border-[#102B46] bg-[#102B46] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#102B46]/90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSubmitting ? 'Sending...' : 'Submit inquiry'}
-                </button>
-              </div>
-            </form>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              name="name"
+              value={formState.name}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Your name"
+            />
           </div>
-        </div>
-      )}
-    </>
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="email"
+              type="email"
+              name="email"
+              value={formState.email}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="your@email.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+              Company <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="company"
+              type="text"
+              name="company"
+              value={formState.company}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Your company"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="inquiryType" className="block text-sm font-medium text-gray-700 mb-1">
+              Type of Inquiry
+            </label>
+            <select
+              id="inquiryType"
+              name="inquiryType"
+              value={formState.inquiryType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option>General Inquiry</option>
+              <option>Sourcing Request</option>
+              <option>Compliance Support</option>
+              <option>Business Partnership</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+              Message <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="message"
+              name="message"
+              value={formState.message}
+              onChange={handleChange}
+              required
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Tell us more about your inquiry..."
+            />
+          </div>
+
+          {/* Honeypot field */}
+          <input type="hidden" name="website" value={formState.website} onChange={handleChange} />
+
+          {successMessage && (
+            <div
+              className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+              role="alert"
+              aria-live="polite"
+            >
+              {successMessage}
+            </div>
+          )}
+
+          {errorMessage && (
+            <div
+              className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm"
+              role="alert"
+              aria-live="polite"
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoading ? 'Sending...' : 'Send Inquiry'}
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }

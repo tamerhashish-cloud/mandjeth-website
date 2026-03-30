@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
   const forwardedFor = request.headers.get('x-forwarded-for')
   const clientIp = forwardedFor?.split(',')[0]?.trim() || 'unknown-client'
 
+  console.log(`[contact] POST request from IP: ${clientIp}`)
+
   if (isRateLimited(clientIp)) {
     return NextResponse.json(
       { message: 'Too many requests. Please wait a minute and try again.' },
@@ -76,7 +78,10 @@ export async function POST(request: NextRequest) {
   const fromEmail = process.env.CONTACT_FROM_EMAIL ?? 'onboarding@resend.dev'
 
   if (!apiKey || !toEmail) {
-    console.error('[contact-inquiry] Missing RESEND_API_KEY or CONTACT_TO_EMAIL env vars')
+    console.error('[contact] Missing env vars', {
+      hasApiKey: !!apiKey,
+      hasToEmail: !!toEmail,
+    })
     return NextResponse.json(
       { message: 'Email delivery is not configured. Please try again later.' },
       { status: 503 },
@@ -102,7 +107,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) {
-    console.error('[contact-inquiry] Resend error:', error)
+    console.error('[contact] Resend API error:', error)
     return NextResponse.json(
       { message: 'Your inquiry could not be delivered. Please try again.' },
       { status: 502 },

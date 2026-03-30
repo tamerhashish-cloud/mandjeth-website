@@ -1,7 +1,11 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-export default function Header() {
+interface HeaderProps {
+  onContactClick?: () => void
+}
+
+export default function Header({ onContactClick }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-black/5 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 md:px-6 py-4">
@@ -29,12 +33,12 @@ export default function Header() {
             ))}
           </nav>
 
-          <Link
-            href="#contact"
+          <button
+            onClick={onContactClick}
             className="inline-flex items-center justify-center rounded border border-[#102B46] bg-[#102B46] px-5 py-2 text-xs font-semibold uppercase tracking-widest text-white transition-all duration-200 hover:-translate-y-[1px] hover:bg-[#102B46]/90"
           >
             Book a call
-          </Link>
+          </button>
         </div>
       </div>
     </header>

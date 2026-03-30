@@ -16,7 +16,7 @@ export default function Footer() {
                 className="h-[75px] w-auto object-contain mb-6"
               />
               <p className="text-slate-200/62 text-sm leading-7 max-w-sm">
-                Maritime fuel, compliance and sourcing advisory.
+                Maritime fuel, compliance and business advisory.
               </p>
             </div>
             <div>
